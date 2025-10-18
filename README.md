@@ -146,17 +146,39 @@ fatal: the remote end hung up unexpectedly
 
 #### Solution
 
-**1. Install the Git LFS client.**
+1. Install the Git LFS client.
 
-- macOS: `brew install git-lfs`
-- Linux (Debian/Ubuntu): `sudo apt-get install git-lfs`
-- Windows: Download and run the installer from [git-lfs.com](https://git-lfs.com/).
+    - macOS: `brew install git-lfs`
+    - Linux (Debian/Ubuntu): `sudo apt-get install git-lfs`
+    - Windows: Download and run the installer from [git-lfs.com](https://git-lfs.com/).
 
-**2. Initialize Git LFS for your user account.**
+2. Initialize Git LFS for your user account.
 
-```bash
-git lfs install
-```
+    ```bash
+    git lfs install
+    ```
+
+## ⚙️ Environment Setup
+
+This project uses [uv](https://docs.astral.sh/uv/).
+
+1. Install uv:
+
+    ```bash
+    pip install uv
+    ```
+
+2. Sync dependencies:
+
+    ```bash
+    uv sync
+    ```
+
+3. Run scripts:
+
+    ```bash
+    uv run scripts/s01_data_preprocessing.py
+    ```
 
 ### How to Pull Large Files
 
