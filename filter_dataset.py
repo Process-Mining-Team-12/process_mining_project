@@ -2,12 +2,12 @@ import pandas as pd
 
 
 # Minimal configuration — edit these values and run the script
-INPUT_CSV = "merged_pratiche_ps_2023.csv"  # path to source CSV
-OUTPUT_CSV = "data/dataset_filtered.csv"  # path to save filtered CSV
+INPUT_CSV = "data/raw/source_data.csv"  # path to source CSV
+OUTPUT_CSV = "data/raw/filtered_data.csv"  # path to save filtered CSV
 COLUMN = "DESCR_EROGATORE"  # column to check
 REMOVE_VALUES = [
 	"Eliot",
-	# "ER ROOM 2",
+	"PS Gen AO CASERTA",
 ]
 df = pd.read_csv(INPUT_CSV)
 
