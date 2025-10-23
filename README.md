@@ -144,7 +144,7 @@ The mapping below defines the six categories and lists the original DESCR_EROGAT
 | 1     | Tests        | LAB. ANALISI                                    |
 | 2     | Radiology     | RADIOLOGIA, NEURORADIOLOGIA                     |
 | 3     | Specialty_Diagnostics   | Cardio, Oculistico, Dermatologico |
-| 4     | Surgery_Resuscitation | Chirurgia, Rianimazione, Amb. Maxillo-Odontost. |
+| 4     | Surgery | Chirurgia, Rianimazione, Amb. Maxillo-Odontost. |
 | 5     | Oncology                | Oncologia Medica, Amb. Oncologico               |
 | 6     | Follow-Up  | Follow-up del paziente post acuto - ambulatorio           |
 

@@ -3,7 +3,7 @@
 # Departments related to laboratory analysis and high-volume test data. 
 # This group makes up the majority of the dataset and is kept separate for clarity.
 # ==============================================
-LAB_ANALISI = [
+TESTS = [
     "LAB. ANALISI"
 ]
 
@@ -42,11 +42,11 @@ SPECIALTY_DIAGNOSTIC = [
 
 
 # ==============================================
-# 4. SURGICAL / VASCULAR / PROCEDURAL REPARTO
+# 4. SURGICAL / VASCULAR / ANESTESIA
 # Departments responsible for surgical interventions, vascular procedures, 
 # and anesthesia or resuscitation units.
 # ==============================================
-SURGICAL = [
+SURGERY = [
     "REPARTO AMBULATORIALE CHIRURGIA VASCOLARE",
     "REPARTO AMBULATORIALE CH.MAX.ODONTOST.",
     "REPARTO AMBULATORIALE ANESTESIA E RIANIMAZIONE"
