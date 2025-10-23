@@ -62,8 +62,23 @@ TIMESTAMP_COLUMNS = [
     "test_planned_ts"
 ]
 
+OUTCOME_MAP = {
+    "Rifiuta ricovero": "Refused admission",
+    "Dimissione a strutture ambulatoriali": "Outpatient discharge",
+    "Ricovero": "Admitted",
+    "Dimissione a domicilio": "Home discharge",
+    "Abbandona prima della chiusura della cartella": "Left early",
+    "Trasferito ad altro Ospedale": "Hospital transfer",
+    "Deceduto in PS": "Died in ER",
+    "Trasferito in struttura territoriale": "Local transfer",
+    "Giunto cadavere": "Arrived dead"
+}
+
 def filter_data():
     df = pd.read_csv(INPUT_CSV, low_memory=False)
+
+    # Strip spaces from all string columns
+    df = df.apply(lambda col: col.str.strip() if col.dtype == "object" else col)
 
     # Working only with patient data from PS Generale
     df = df[df["PS"] == "PS GENERALE"]
@@ -76,6 +91,9 @@ def filter_data():
     
     # Renaming columns
     df = df.rename(columns=RENAME_MAP)
+
+    # Map outcome_raw column to short english names
+    df["outcome_raw"] = df["outcome_raw"].map(OUTCOME_MAP)
     
     # Keep only needed columns
     columns_to_keep = list(RENAME_MAP.values())
