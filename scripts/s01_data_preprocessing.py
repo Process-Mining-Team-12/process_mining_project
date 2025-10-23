@@ -1,9 +1,23 @@
 from datetime import timedelta
 import pandas as pd 
 
-source_path = '/Users/beatricianagit/process_mining_project/data/raw/source_data.csv'
+INPUT_CSV = 'data/raw/source_data.csv'
+OUTPUT_CSV = 'data/raw/filtered_data.csv'
 
-rename_map = {
+COLUMN = "DESCR_EROGATORE"
+REMOVE_VALUES = [
+	"PS Gen AO CASERTA",
+    "IMMUNOEMATOLOGIA E CENTRO TRASFUSIONALE - AMBULATORIO (PER ESTERNI)",
+    "TERAPIA DEL DOLORE - AMBULATORIO",
+    "REPARTO AMBULATORIALE CHIRURGIA D'URGENZA",
+    "GERIATRIA - AMBULATORIO",
+    "STROKE UNIT - AMBULATORIO",
+    "CARDIOCHIRURGIA - AMBULATORIO",
+    "PEDIATRIA - AMBULATORIO",
+    "OSTETRICIA E GINECOLOGIA A DIREZIONE UNIVERSITARIA - AMBULATORIO",
+]
+
+RENAME_MAP = {
     # Case & demographics
     "ID": "case_id",
     "PS": "emergency_room",                
@@ -16,24 +30,23 @@ rename_map = {
     "Reparto": "department",
     "eta_paziente": "age",
     "etapaziente_ric": "age_group",
-    "Triage_Ingr": "TRIAGE_ENTRY_SEVERITY", # this is for TRIAGE_ENTRY.severity
-    "Triage_OUT": "TRIAGE_OUT_SEVERITY", # this is for TRIAGE_OUT.severity
-
+    "Triage_Ingr": "triage_entry_severity", # this is for TRIAGE_ENTRY.severity
+    "Triage_OUT": "triage_exit_severity", # this is for TRIAGE_EXIT.severity
 
     # Core timestamps 
     # ts - timestamp
-    "data_arrivo_tot": "ARRIVAL_ts",
-    "Presa_In_Carico": "ACCEPTANCY_ts",
-    "data_dimissione_tot": "DISCHARGE_ts",
+    "data_arrivo_tot": "arrival_ts",
+    "Presa_In_Carico": "acceptancy_ts",
+    "data_dimissione_tot": "outcome_ts",
 
     # Outcome -> becomes OUTCOME_* activity later
-    "Esito": "OUTCOME_raw", # will be changed to OUTCOME_Ricovero, OUTCOME_Dimissione_a_domicilio later
+    "Esito": "outcome_raw", # will be changed to OUTCOME_Ricovero, OUTCOME_Dimissione_a_domicilio later
 
     # DISCHARGE attributes
-    "Medico_Dimissione": "DISCHARGE_doctor",
-    "Diag_TXT": "DISCHARGE_diagnosis_description",
-    "Diagnosi_Classe": "DISCHARGE_diagnosis_class",
-    "Diagnosi_Codice": "DISCHARGE_diagnosis_code",
+    "Medico_Dimissione": "discharge_doctor",
+    "Diag_TXT": "discharge_diagnosis_description",
+    "Diagnosi_Classe": "discharge_diagnosis_class",
+    "Diagnosi_Codice": "discharge_diagnosis_code",
 
     # VISIT and tests
     "CODICE_RICHIESTA": "visit_code",
@@ -42,41 +55,50 @@ rename_map = {
     "DATA_PREVISTA_EROGAZIONE": "test_planned_ts"
 }
 
-timestamp_columns = [
-    "ARRIVAL_ts", 
-    "ACCEPTANCY_ts", 
-    "DISCHARGE_ts", 
+TIMESTAMP_COLUMNS = [
+    "arrival_ts", 
+    "acceptancy_ts", 
+    "outcome_ts", 
     "test_planned_ts"
 ]
 
-def run_full_clean(source_path, rename_map, timestamp_columns, preview_path="clean_db_preview.csv", n_preview=10):
-    df_sample = pd.read_csv(source_path, low_memory=False)
+def filter_data():
+    df = pd.read_csv(INPUT_CSV, low_memory=False)
 
     # Working only with patient data from PS Generale
-    df_sample = df_sample[df_sample["PS"] == 'PS GENERALE'].copy()
+    df = df[df["PS"] == "PS GENERALE"]
+
+    # Find IDs that have at least one row with a value to remove in the target column
+    ids_to_remove = df.loc[df[COLUMN].isin(REMOVE_VALUES), "ID"].dropna().unique()
+
+    # Drop all rows whose ID is in that set
+    df = df[~df["ID"].isin(ids_to_remove)]
     
     # Renaming columns
-    df_sample = df_sample.rename(columns=rename_map)
+    df = df.rename(columns=RENAME_MAP)
     
     # Keep only needed columns
-    columns_to_keep = list(rename_map.values())
-    clean_db = df_sample[[c for c in columns_to_keep if c in df_sample.columns]].copy()
+    columns_to_keep = list(RENAME_MAP.values())
+    df_filtered = df[[c for c in columns_to_keep if c in df.columns]].copy()
 
     # converting timestamps to datetime
     # 2023-01-01 21:19:00 -> real datetime object
-    for col in timestamp_columns:
-        if col in clean_db.columns:
-            clean_db[col] = pd.to_datetime(clean_db[col], errors="coerce")
+    for col in TIMESTAMP_COLUMNS:
+        if col in df_filtered.columns:
+            df_filtered[col] = pd.to_datetime(df_filtered[col], errors="coerce")
     
-    # creating synthetic timestamps for TRIAGE_ENTRY and TRIAGE_OUT
-    if "ARRIVAL_ts" in clean_db.columns:
-        clean_db["TRIAGE_ENTRY_ts"] = clean_db["ARRIVAL_ts"] + timedelta(seconds=1)
-    if "ACCEPTANCY_ts" in clean_db.columns:
-        clean_db["TRIAGE_OUT_ts"] = clean_db["ACCEPTANCY_ts"] + timedelta(seconds=1)
+    # creating synthetic timestamps for TRIAGE_ENTRY and TRIAGE_EXIT
+    if "arrival_ts" in df_filtered.columns:
+        df_filtered["triage_entry_ts"] = df_filtered["arrival_ts"] + timedelta(milliseconds=1)
+    if "outcome_ts" in df_filtered.columns:
+        df_filtered["triage_exit_ts"] = df_filtered["outcome_ts"] + timedelta(milliseconds=1)
+        df_filtered["discharge_ts"] = df_filtered["outcome_ts"] + timedelta(milliseconds=2)
 
-    # Save a small preview for wide tables
-    clean_db.head(n_preview).to_csv(preview_path, index=False)
+    return df_filtered
 
-    return clean_db
+def save_data(df):
+    df.to_csv(OUTPUT_CSV, index=False)
 
-clean_db = run_full_clean(source_path, rename_map, timestamp_columns)
+if __name__ == "__main__":
+    df_filtered = filter_data()
+    save_data(df_filtered)
