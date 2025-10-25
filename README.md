@@ -131,6 +131,26 @@ The following table details how the raw data columns are mapped to the final, cl
 | OBI / Data_OBI | ❓ | To be determined | Under consideration. |
 | Other columns | ❌ No | (Discarded) | Not required for the analysis. |
 
+## Activity Groups
+Due to a large number of individual activities, the data was split into 6 different groups based on the `DESCR_EROGATORE` column. This column holds the description of the department that provided the service for the patient and thus served as a strong logical basis for grouping related departments together.
+
+The mapping below defines the six categories and lists the original DESCR_EROGATORE values that were assigned to each. The format for the mapping list is [**Former DESCR_EROGATORE Name ->  `TEST/VISIT.*_department`**]
+</br> example: visit to the dermatologist (previously: `DERMATOLOGIA E MALATTIE VENEREE - AMBULATORIO`) would be grouped under value `VISIT_Specialty_Diagnostics`.
+
+</br>
+
+ | Group| Name                    | Example Departments                              |
+| :---- | :---------------------- |:----------------------------------------------  |
+| 1     | Tests        | LAB. ANALISI                                    |
+| 2     | Radiology     | RADIOLOGIA, NEURORADIOLOGIA                     |
+| 3     | Specialty_Diagnostics   | Cardio, Oculistico, Dermatologico |
+| 4     | Surgery | Chirurgia, Rianimazione, Amb. Maxillo-Odontost. |
+| 5     | Oncology                | Oncologia Medica, Amb. Oncologico               |
+| 6     | Follow-Up  | Follow-up del paziente post acuto - ambulatorio           |
+
+💡 Full group division with description is available in this [file](data/samples/grouping_overview.py).
+
+
 ## 🛠️ Setup & Troubleshooting
 
 This repository uses **Git LFS** (Large File Storage) to handle large data files. You must have the Git LFS client installed to clone and pull data correctly.
