@@ -1,12 +1,14 @@
+"""Data Preprocessing Script"""
 from datetime import timedelta
-import pandas as pd 
+from pathlib import Path
+import pandas as pd
 
-INPUT_CSV = 'data/raw/source_data.csv'
-OUTPUT_CSV = 'data/raw/filtered_data.csv'
+INPUT_CSV = Path("data/raw/source_data.csv")
+OUTPUT_CSV = Path("data/raw/filtered_data.csv")
 
 COLUMN = "DESCR_EROGATORE"
 REMOVE_VALUES = [
-	"PS Gen AO CASERTA",
+    "PS Gen AO CASERTA",
     "IMMUNOEMATOLOGIA E CENTRO TRASFUSIONALE - AMBULATORIO (PER ESTERNI)",
     "TERAPIA DEL DOLORE - AMBULATORIO",
     "REPARTO AMBULATORIALE CHIRURGIA D'URGENZA",
@@ -20,7 +22,7 @@ REMOVE_VALUES = [
 RENAME_MAP = {
     # Case & demographics
     "ID": "case_id",
-    "PS": "emergency_room",                
+    "PS": "emergency_room",
     "Scheda_PS": "file_id",
     "Sesso": "sex",
     "Data_Nascita": "birthday",
@@ -30,17 +32,16 @@ RENAME_MAP = {
     "Reparto": "department",
     "eta_paziente": "age",
     "etapaziente_ric": "age_group",
-    "Triage_Ingr": "triage_entry_severity", # this is for TRIAGE_ENTRY.severity
-    "Triage_OUT": "triage_exit_severity", # this is for TRIAGE_EXIT.severity
+    "Triage_Ingr": "triage_entry_severity",
+    "Triage_OUT": "triage_exit_severity",
 
-    # Core timestamps 
-    # ts - timestamp
+    # Core timestamps
     "data_arrivo_tot": "arrival_ts",
     "Presa_In_Carico": "acceptancy_ts",
     "data_dimissione_tot": "outcome_ts",
 
-    # Outcome -> becomes OUTCOME_* activity later
-    "Esito": "outcome_raw", # will be changed to OUTCOME_Ricovero, OUTCOME_Dimissione_a_domicilio later
+    # Outcome
+    "Esito": "outcome_raw",
 
     # DISCHARGE attributes
     "Medico_Dimissione": "discharge_doctor",
@@ -51,72 +52,114 @@ RENAME_MAP = {
     # VISIT and tests
     "CODICE_RICHIESTA": "visit_code",
     "DESCR_PRESTAZIONE": "visit_description",
-    "DESCR_EROGATORE": "test_department",  
+    "DESCR_EROGATORE": "test_department",
     "DATA_PREVISTA_EROGAZIONE": "test_planned_ts"
 }
 
 TIMESTAMP_COLUMNS = [
-    "arrival_ts", 
-    "acceptancy_ts", 
-    "outcome_ts", 
-    "test_planned_ts"
+    "arrival_ts",
+    "acceptancy_ts",
+    "outcome_ts",
+    "test_planned_ts",
 ]
 
 OUTCOME_MAP = {
-    "Rifiuta ricovero": "Refused admission",
-    "Dimissione a strutture ambulatoriali": "Outpatient discharge",
-    "Ricovero": "Admitted",
-    "Dimissione a domicilio": "Home discharge",
-    "Abbandona prima della chiusura della cartella": "Left early",
-    "Trasferito ad altro Ospedale": "Hospital transfer",
-    "Deceduto in PS": "Died in ER",
-    "Trasferito in struttura territoriale": "Local transfer",
-    "Giunto cadavere": "Arrived dead"
+    "Rifiuta ricovero": "REFUSED_ADMISSION",
+    "Dimissione a strutture ambulatoriali": "OUTPATIENT_DISCHARGE",
+    "Ricovero": "ADMITTED",
+    "Dimissione a domicilio": "HOME_DISCHARGE",
+    "Abbandona prima della chiusura della cartella": "LEFT_EARLY",
+    "Trasferito ad altro Ospedale": "HOSPITAL_TRANSFER",
+    "Deceduto in PS": "DIED_ER",
+    "Trasferito in struttura territoriale": "LOCAL_TRANSFER",
+    "Giunto cadavere": "ARRIVED_DEAD",
 }
 
-def filter_data():
-    df = pd.read_csv(INPUT_CSV, low_memory=False)
 
-    # Strip spaces from all string columns
-    df = df.apply(lambda col: col.str.strip() if col.dtype == "object" else col)
+def load_data(filepath: Path) -> pd.DataFrame:
+    """Load CSV data from the given path."""
+    return pd.read_csv(filepath, low_memory=False)
 
-    # Working only with patient data from PS Generale
-    df = df[df["PS"] == "PS GENERALE"]
 
-    # Find IDs that have at least one row with a value to remove in the target column
-    ids_to_remove = df.loc[df[COLUMN].isin(REMOVE_VALUES), "ID"].dropna().unique()
+def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip spaces from all string columns."""
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].str.strip()
+    return df
 
-    # Drop all rows whose ID is in that set
-    df = df[~df["ID"].isin(ids_to_remove)]
-    
-    # Renaming columns
-    df = df.rename(columns=RENAME_MAP)
 
-    # Map outcome_raw column to short english names
-    df["outcome_raw"] = df["outcome_raw"].map(OUTCOME_MAP)
-    
-    # Keep only needed columns
-    columns_to_keep = list(RENAME_MAP.values())
-    df_filtered = df[[c for c in columns_to_keep if c in df.columns]].copy()
+def filter_emergency_room(df: pd.DataFrame, er_name: str = "PS GENERALE") -> pd.DataFrame:
+    """Keep only rows where PS equals the specified emergency room name."""
+    return df[df["PS"] == er_name]
 
-    # converting timestamps to datetime
-    # 2023-01-01 21:19:00 -> real datetime object
-    for col in TIMESTAMP_COLUMNS:
-        if col in df_filtered.columns:
-            df_filtered[col] = pd.to_datetime(df_filtered[col], errors="coerce")
-    
-    # creating synthetic timestamps for TRIAGE_ENTRY and TRIAGE_EXIT
-    if "arrival_ts" in df_filtered.columns:
-        df_filtered["triage_entry_ts"] = df_filtered["arrival_ts"] + timedelta(milliseconds=1)
-    if "outcome_ts" in df_filtered.columns:
-        df_filtered["triage_exit_ts"] = df_filtered["outcome_ts"] + timedelta(milliseconds=1)
-        df_filtered["discharge_ts"] = df_filtered["outcome_ts"] + timedelta(milliseconds=2)
 
-    return df_filtered
+def remove_invalid_rows(df: pd.DataFrame, column: str, to_remove: list[str]) -> pd.DataFrame:
+    """Remove all patients whose ID appears with a given column value in `values_to_remove`."""
+    ids_to_remove = df.loc[df[column].isin(to_remove), "ID"].dropna().unique()
+    return df[~df["ID"].isin(ids_to_remove)]
 
-def save_data(df):
-    df.to_csv(OUTPUT_CSV, index=False)
+
+def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame:
+    """Rename DataFrame columns according to the given mapping."""
+    return df.rename(columns=rename_map)
+
+
+def map_outcome_values(df: pd.DataFrame, column: str = "outcome_raw") -> pd.DataFrame:
+    """Map Italian outcome descriptions to English codes."""
+    df[column] = df[column].map(OUTCOME_MAP)
+    return df
+
+
+def dropna_by_column(df: pd.DataFrame, column: str):
+    """Remove all patients who have a NaN value in the specified column."""
+    ids_to_remove = df.loc[df[column].isna(), "case_id"].dropna().unique()
+    return df[~df["case_id"].isin(ids_to_remove)]
+
+
+def filter_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Keep only specified columns that exist in the DataFrame."""
+    existing = [c for c in columns if c in df.columns]
+    return df[existing].copy()
+
+
+def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFrame:
+    """Convert timestamp columns to datetime, coercing errors."""
+    for col in timestamp_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
+
+
+def add_synthetic_timestamps(df: pd.DataFrame) -> pd.DataFrame:
+    """Add synthetic timestamps for triage and discharge events."""
+    if "arrival_ts" in df.columns:
+        df["triage_entry_ts"] = df["arrival_ts"] + timedelta(milliseconds=1)
+    if "outcome_ts" in df.columns:
+        df["triage_exit_ts"] = df["outcome_ts"] + timedelta(milliseconds=1)
+        df["discharge_ts"] = df["outcome_ts"] + timedelta(milliseconds=2)
+    return df
+
+
+def save_data(df: pd.DataFrame, filepath: Path) -> None:
+    """Save DataFrame to CSV."""
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(filepath, index=False)
+
+
+def process_data(input_path: Path, output_path: Path) -> None:
+    """Execute the full filtering and cleaning pipeline."""
+    df = load_data(input_path)
+    df = filter_emergency_room(df)
+    df = remove_invalid_rows(df, COLUMN, REMOVE_VALUES)
+    df = rename_columns(df, RENAME_MAP)
+    df = filter_columns(df, list(RENAME_MAP.values()))
+    df = convert_timestamps(df, TIMESTAMP_COLUMNS)
+    df = add_synthetic_timestamps(df)
+    df = clean_strings(df)
+    df = map_outcome_values(df)
+    df = dropna_by_column(df, column="triage_exit_severity")
+    save_data(df, output_path)
+
 
 if __name__ == "__main__":
-    df_filtered = filter_data()
-    save_data(df_filtered)
+    process_data(INPUT_CSV, OUTPUT_CSV)
