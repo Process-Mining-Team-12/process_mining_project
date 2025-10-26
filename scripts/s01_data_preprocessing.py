@@ -6,7 +6,6 @@ import pandas as pd
 INPUT_CSV = Path("data/raw/source_data.csv")
 OUTPUT_CSV = Path("data/raw/filtered_data.csv")
 
-COLUMN = "DESCR_EROGATORE"
 REMOVE_VALUES = [
     "PS Gen AO CASERTA",
     "IMMUNOEMATOLOGIA E CENTRO TRASFUSIONALE - AMBULATORIO (PER ESTERNI)",
@@ -75,6 +74,15 @@ OUTCOME_MAP = {
     "Giunto cadavere": "ARRIVED_DEAD",
 }
 
+SEVERITY_MAP = {
+    "Arancione": "ORANGE",
+    "Azzurro": "BLUE",
+    "Bianco": "WHITE",
+    "Nero": "BLACK",
+    "Rosso": "RED",
+    "Verde": "GREEN",
+}
+
 
 def load_data(filepath: Path) -> pd.DataFrame:
     """Load CSV data from the given path."""
@@ -90,13 +98,16 @@ def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
 
 def filter_emergency_room(df: pd.DataFrame, er_name: str = "PS GENERALE") -> pd.DataFrame:
     """Keep only rows where PS equals the specified emergency room name."""
-    return df[df["PS"] == er_name]
+    return df[df["emergency_room"] == er_name]
 
 
-def remove_invalid_rows(df: pd.DataFrame, column: str, to_remove: list[str]) -> pd.DataFrame:
+def drop_invalid_exams(df: pd.DataFrame, to_remove: list[str]) -> pd.DataFrame:
     """Remove all patients whose ID appears with a given column value in `values_to_remove`."""
-    ids_to_remove = df.loc[df[column].isin(to_remove), "ID"].dropna().unique()
-    return df[~df["ID"].isin(ids_to_remove)]
+    ids_to_remove = df.loc[
+        df["test_department"].isin(to_remove),
+        "case_id"
+    ].dropna().unique()
+    return df[~df["case_id"].isin(ids_to_remove)]
 
 
 def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame:
@@ -104,16 +115,17 @@ def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame
     return df.rename(columns=rename_map)
 
 
-def map_outcome_values(df: pd.DataFrame, column: str = "outcome_raw") -> pd.DataFrame:
-    """Map Italian outcome descriptions to English codes."""
-    df[column] = df[column].map(OUTCOME_MAP)
+def map_outcome_values(df: pd.DataFrame) -> pd.DataFrame:
+    """Map Italian outcome descriptions to English ones."""
+    df["outcome_raw"] = df["outcome_raw"].map(OUTCOME_MAP)
     return df
 
 
-def dropna_by_column(df: pd.DataFrame, column: str):
-    """Remove all patients who have a NaN value in the specified column."""
-    ids_to_remove = df.loc[df[column].isna(), "case_id"].dropna().unique()
-    return df[~df["case_id"].isin(ids_to_remove)]
+def map_triage_severity_values(df: pd.DataFrame):
+    """Map Italian triage severity descriptions to English ones."""
+    df["triage_entry_severity"] = df["triage_entry_severity"].map(SEVERITY_MAP)
+    df["triage_exit_severity"] = df["triage_exit_severity"].map(SEVERITY_MAP)
+    return df
 
 
 def filter_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
@@ -133,11 +145,26 @@ def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFr
 def add_synthetic_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Add synthetic timestamps for triage and discharge events."""
     if "arrival_ts" in df.columns:
-        df["triage_entry_ts"] = df["arrival_ts"] + timedelta(milliseconds=1)
+        df["triage_entry_ts"] = df["arrival_ts"] + timedelta(seconds=1)
     if "outcome_ts" in df.columns:
-        df["triage_exit_ts"] = df["outcome_ts"] + timedelta(milliseconds=1)
-        df["discharge_ts"] = df["outcome_ts"] + timedelta(milliseconds=2)
+        df["triage_exit_ts"] = df["outcome_ts"] + timedelta(seconds=1)
+        df["discharge_ts"] = df["outcome_ts"] + timedelta(seconds=2)
     return df
+
+
+def dropna_by_column(df: pd.DataFrame, column: str):
+    """Remove all patients who have a NaN value in the specified column."""
+    ids_to_remove = df.loc[df[column].isna(), "case_id"].dropna().unique()
+    return df[~df["case_id"].isin(ids_to_remove)]
+
+
+def drop_invalid_timestamps(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove all patients with invalid timestamps."""
+    ids_to_remove = df.loc[
+        df["acceptancy_ts"] >= df["triage_exit_ts"],
+        "case_id"
+    ].dropna().unique()
+    return df[~df["case_id"].isin(ids_to_remove)]
 
 
 def save_data(df: pd.DataFrame, filepath: Path) -> None:
@@ -149,15 +176,17 @@ def save_data(df: pd.DataFrame, filepath: Path) -> None:
 def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
-    df = filter_emergency_room(df)
-    df = remove_invalid_rows(df, COLUMN, REMOVE_VALUES)
     df = rename_columns(df, RENAME_MAP)
+    df = filter_emergency_room(df)
+    df = drop_invalid_exams(df, REMOVE_VALUES)
     df = filter_columns(df, list(RENAME_MAP.values()))
     df = convert_timestamps(df, TIMESTAMP_COLUMNS)
     df = add_synthetic_timestamps(df)
     df = clean_strings(df)
     df = map_outcome_values(df)
+    df = map_triage_severity_values(df)
     df = dropna_by_column(df, column="triage_exit_severity")
+    df = drop_invalid_timestamps(df)
     save_data(df, output_path)
 
 
