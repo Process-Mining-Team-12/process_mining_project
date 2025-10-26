@@ -44,6 +44,61 @@ class TriageEntryEvent(BaseEvent):
 
 
 @dataclass
+class AcceptancyEvent(BaseEvent):
+    """Event ACCEPTANCY"""
+    name: str = field(init=False, default="ACCEPTANCY")
+
+
+@dataclass
+class TestInitialEvent(BaseEvent):
+    """Event TEST INITIAL"""
+    name: str = field(init=False, default="TEST_INITIAL")
+    code: int
+    description: str
+    department: str
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["code"] = self.code
+        result["description"] = self.description
+        result["department"] = self.department
+        return result
+
+
+@dataclass
+class TestFollowUpEvent(BaseEvent):
+    """Event TEST FOLLOW UP"""
+    name: str = field(init=False, default="TEST_FOLLOW_UP")
+    code: int
+    description: str
+    department: str
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["code"] = self.code
+        result["description"] = self.description
+        result["department"] = self.department
+        return result
+
+
+@dataclass
+class VisitEvent(BaseEvent):
+    """Event VISIT"""
+    # No default value for name because it depends on the group
+    name: str
+    code: int
+    description: str
+    department: str
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["code"] = self.code
+        result["description"] = self.description
+        result["department"] = self.department
+        return result
+
+
+@dataclass
 class Case:
     """Class representing a Patient Case"""
     case_id: str
@@ -75,8 +130,8 @@ class EventLog:
         """Export the log to XES using pm4py."""
         df = self.to_dataframe()
 
-        # Replace NaN with None (so pm4py ignores missing values)
-        df = df.where(pd.notnull(df), None)
+        # Replace NaN with pd.NA (so pm4py ignores missing values)
+        df = df.convert_dtypes()
 
         df = pm4py.format_dataframe(
             df,
@@ -129,9 +184,11 @@ if __name__ == "__main__":
         assert triage_entry_ts < acceptancy_ts
         assert acceptancy_ts < triage_exit_ts
 
+        # ARRIVAL EVENT
         arrival = ArrivalEvent(case_id, arrival_ts)
         case.add_event(arrival)
 
+        # TRIAGE ENTRY EVENT
         triage_entry = TriageEntryEvent(
             case_id,
             triage_entry_ts,
@@ -139,9 +196,52 @@ if __name__ == "__main__":
         )
         case.add_event(triage_entry)
 
-        # for index, event in event_df.iterrows():
-        #     pass
+        # ACCEPTANCY EVENT
+        acceptancy = AcceptancyEvent(case_id, acceptancy_ts)
+        case.add_event(acceptancy)
 
+        test_and_visits = event_df.groupby([
+            "test_planned_ts",
+            "visit_code",
+            "test_department"
+        ])
+        first_test = True
+        for index, tv_df in test_and_visits:
+            if get_unique_from_df(tv_df, "test_department") == "LAB. ANALISI":
+                if first_test:
+                    #  TEST INITIAL EVENT
+                    test = TestInitialEvent(
+                        case_id,
+                        timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
+                        code=get_unique_from_df(tv_df, "visit_code"),
+                        # TODO concatenate visit_description values
+                        description="TODO",
+                        department=get_unique_from_df(tv_df, "test_department")
+                    )
+                    first_test = False
+                else:
+                    #  TEST FOLLOW UP EVENT
+                    test = TestFollowUpEvent(
+                        case_id,
+                        timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
+                        code=get_unique_from_df(tv_df, "visit_code"),
+                        # TODO concatenate visit_description values
+                        description="TODO",
+                        department=get_unique_from_df(tv_df, "test_department")
+                    )
+                case.add_event(test)
+            else:
+                visit = VisitEvent(
+                    case_id,
+                    # TODO replace with mapped visit_description
+                    name=f"VISIT_{get_unique_from_df(tv_df, 'visit_code')}",
+                    timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
+                    code=get_unique_from_df(tv_df, "visit_code"),
+                    # TODO concatenate visit_description values
+                    description="TODO",
+                    department=get_unique_from_df(tv_df, "test_department")
+                )
+                case.add_event(visit)
         log.cases.append(case)
 
     log.to_xes("output/log.xes")
