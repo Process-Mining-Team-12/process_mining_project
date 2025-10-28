@@ -141,12 +141,13 @@ The mapping below defines the six categories and lists the original DESCR_EROGAT
 
  | Group| Name                    | Example Departments                              |
 | :---- | :---------------------- |:----------------------------------------------  |
-| 1     | Tests        | LAB. ANALISI                                    |
-| 2     | Radiology     | RADIOLOGIA, NEURORADIOLOGIA                     |
-| 3     | Specialty_Diagnostics   | Cardio, Oculistico, Dermatologico |
+| 1     | Tests        | Lab. Analisi                                   |
+| 2     | Radiology     | Radiologia, Neuroradiologia                     |
+| 3     | Medical   | Cardio, Oculistico, Dermatologico |
 | 4     | Surgery | Chirurgia, Rianimazione, Amb. Maxillo-Odontost. |
-| 5     | Oncology                | Oncologia Medica, Amb. Oncologico               |
-| 6     | Follow-Up  | Follow-up del paziente post acuto - ambulatorio           |
+| 5     | Intensive | Reparto ambulatoriale anestesia e rianimazione |
+| 6     | Oncology                | Oncologia Medica, Amb. Oncologico               |
+| 7     | Follow-Up  | Follow-up del paziente post acuto - ambulatorio           |
 
 💡 Full group division with description is available in this [file](data/samples/grouping_overview.py).
 
