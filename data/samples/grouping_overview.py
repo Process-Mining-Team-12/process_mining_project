@@ -38,8 +38,7 @@ MEDICAL = {
 
 # ==============================================
 # 4. SURGICAL / VASCULAR / ANESTESIA
-# Departments responsible for surgical interventions, vascular procedures, 
-# and anesthesia or resuscitation units.
+# Departments responsible for surgical interventions or vascular procedures.
 # ==============================================
 SURGERY = {
     'NEUROCHIRURGIA - AMBULATORIO': 'NEUROSURGERY',
@@ -54,6 +53,7 @@ SURGERY = {
 
 
 #5. Intensive practices 
+# Only one category, grouping all cases related to anesthesia & resuscination.
 INTENSIVE = {
     'REPARTO AMBULATORIALE ANESTESIA E RIANIMAZIONE': 'ANESTHESIA_RESUSCITATION_AMB',
 }
