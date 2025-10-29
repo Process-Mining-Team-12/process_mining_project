@@ -2,6 +2,7 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from pathlib import Path
+import math
 import datetime as dt
 import pandas as pd
 import pm4py
@@ -99,6 +100,41 @@ class VisitEvent(BaseEvent):
 
 
 @dataclass
+class OutcomeEvent(BaseEvent):
+    """Event OUTCOME"""
+    # No default value for name because it depends on the group
+    name: str
+
+
+@dataclass
+class TriageExitEvent(BaseEvent):
+    """Event TRIAGE_EXIT"""
+    name: str = field(init=False, default="TRIAGE_EXIT")
+    severity: str
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["severity"] = self.severity
+        return result
+
+
+@dataclass
+class DischargeEvent(BaseEvent):
+    """Event DISCHARGE"""
+    name: str = field(init=False, default="DISCHARGE_EVENT")
+    diagnosis_description: str
+    diagnosis_class: str
+    diagnosis_code: int
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["diagnosis_description"] = self.diagnosis_description
+        result["diagnosis_class"] = self.diagnosis_class
+        result["diagnosis_code"] = self.diagnosis_code
+        return result
+
+
+@dataclass
 class Case:
     """Class representing a Patient Case"""
     case_id: str
@@ -154,7 +190,7 @@ def load_data(filepath: Path) -> pd.DataFrame:
 def get_unique_from_df(df: pd.DataFrame, key: str):
     """Return the unique value from the dataframe."""
     value = {e[key] for _, e in df.iterrows()}
-    assert len(value) == 1, f"More than one {key}!"
+    assert len(value) == 1, f"More than one {key}: {value}!"
     return value.pop()
 
 
@@ -169,7 +205,9 @@ if __name__ == "__main__":
         arrival_ts = get_unique_from_df(event_df, "arrival_ts")
         triage_entry_ts = get_unique_from_df(event_df, "triage_entry_ts")
         acceptancy_ts = get_unique_from_df(event_df, "acceptancy_ts")
+        outcome_ts = get_unique_from_df(event_df, "outcome_ts")
         triage_exit_ts = get_unique_from_df(event_df, "triage_exit_ts")
+        discharge_ts = get_unique_from_df(event_df, "discharge_ts")
 
         triage_entry_severity = get_unique_from_df(
             event_df,
@@ -207,6 +245,9 @@ if __name__ == "__main__":
         ])
         first_test = True
         for index, tv_df in test_and_visits:
+            description = ",".join(
+                [tv["visit_description"] for _, tv in tv_df.iterrows()]
+            )
             if get_unique_from_df(tv_df, "test_department") == "LAB. ANALISI":
                 if first_test:
                     #  TEST INITIAL EVENT
@@ -214,8 +255,7 @@ if __name__ == "__main__":
                         case_id,
                         timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
                         code=get_unique_from_df(tv_df, "visit_code"),
-                        # TODO concatenate visit_description values
-                        description="TODO",
+                        description=description,
                         department=get_unique_from_df(tv_df, "test_department")
                     )
                     first_test = False
@@ -225,23 +265,57 @@ if __name__ == "__main__":
                         case_id,
                         timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
                         code=get_unique_from_df(tv_df, "visit_code"),
-                        # TODO concatenate visit_description values
-                        description="TODO",
+                        description=description,
                         department=get_unique_from_df(tv_df, "test_department")
                     )
                 case.add_event(test)
             else:
                 visit = VisitEvent(
                     case_id,
-                    # TODO replace with mapped visit_description
-                    name=f"VISIT_{get_unique_from_df(tv_df, 'visit_code')}",
+                    name=f"VISIT_{get_unique_from_df(tv_df, 'test_department_group')}",
                     timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
                     code=get_unique_from_df(tv_df, "visit_code"),
-                    # TODO concatenate visit_description values
-                    description="TODO",
+                    description=description,
                     department=get_unique_from_df(tv_df, "test_department")
                 )
                 case.add_event(visit)
+
+        # OUCOME EVENT
+        outcome_value = get_unique_from_df(event_df, "outcome_raw")
+        outcome = OutcomeEvent(
+            case_id,
+            name=f"OUTCOME_{outcome_value}",
+            timestamp=outcome_ts
+        )
+        case.add_event(outcome)
+
+        # TRIAGE EXIT EVENT
+        triage_exit = TriageExitEvent(
+            case_id,
+            timestamp=triage_exit_ts,
+            severity=get_unique_from_df(event_df, "triage_exit_severity")
+        )
+        case.add_event(triage_exit)
+
+        ddcs = {e["discharge_diagnosis_code"] for _, e in event_df.iterrows()}
+        ddc = ddcs.pop()
+        diagnosis_code = int(ddc) if not math.isnan(ddc) else -1
+        # DISCHARGE EVENT
+        discharge = DischargeEvent(
+            case_id,
+            diagnosis_description=get_unique_from_df(
+                event_df,
+                "discharge_diagnosis_description"
+            ),
+            diagnosis_class=get_unique_from_df(
+                event_df,
+                "discharge_diagnosis_class"
+            ),
+            diagnosis_code=int(diagnosis_code),
+            timestamp=discharge_ts
+        )
+        case.add_event(discharge)
+
         log.cases.append(case)
 
     log.to_xes("output/log.xes")
