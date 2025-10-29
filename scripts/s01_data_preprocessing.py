@@ -55,6 +55,32 @@ RENAME_MAP = {
     "DATA_PREVISTA_EROGAZIONE": "test_planned_ts"
 }
 
+VISIT_DESCRIPTION_RENAMING_MAPPING = {
+    'LAB. ANALISI': 'TEST / HIGH_VOLUME_LAB',
+    'RADIOLOGIA': 'IMAGING / RADIOLOGY_DEPT',
+    'U.O.S.D. NEURORADIOLOGIA': 'NEURO_IMAGING',
+    'GASTROENTEROLOGIA - AMBULATORIO': 'GASTROENTEROLOGY',
+    'NEFROLOGIA - AMBULATORIO': 'NEPHROLOGY',
+    'DERMATOLOGIA E MALATTIE VENEREE - AMBULATORIO': 'DERMATOLOGY',
+    'MEDICINA INTERNA - AMBULATORIO': 'INTERNAL_MEDICINE',
+    'NEUROLOGIA - AMBULATORIO': 'NEUROLOGY',
+    'PNEUMOLOGIA FISIOPATOLOGIA RESPIRATORIA - AMBULATORIO': 'PULMONOLOGY',
+    'REPARTO AMBULATORIALE ALLERGOLOGIA': 'ALLERGOLOGY_AMB',
+    "CARDIOLOGIA D'EMERGENZA CON UTIC - AMBULATORIO": 'EMERGENCY_CARDIOLOGY_UTIC',
+    'MALATTIE INFETTIVE E TROPICALI A DIREZIONE UNIVERSITARIA - AMBULATORIO - EROGAZIONE FARMACI PER ESTERNI':'INFECTIOUS_DISEASES_PHARMACY',
+    'NEUROCHIRURGIA - AMBULATORIO': 'NEUROSURGERY',
+    'ORTOPEDIA E TRAUMATOLOGIA - AMBULATORIO': 'ORTHOPEDICS_TRAUMA',
+    'OTORINOLARINGOIATRIA - AMBULATORIO': 'ENT_OTOLARYNGOLOGY',
+    'UROLOGIA - AMBULATORIO': 'UROLOGY',
+    'REPARTO AMBULATORIALE CHIRURGIA VASCOLARE': 'VASCULAR_SURGERY_AMB',
+    'REPARTO AMBULATORIALE CH.MAX.ODONTOST.': 'MAXILLOFACIAL_SURGERY_AMB',
+    'REPARTO AMBULATORIALE ANESTESIA E RIANIMAZIONE': 'ANESTHESIA_RESUSCITATION_AMB',
+    'REPARTO AMBULATORIALE ONCOLOGIA': 'ONCOLOGY_GENERAL',
+    'CHIRURGIA GENERALE ED ONCOLOGICA - AMBULATORIO': 'ONCOLOGY_SURGERY',
+    'EMATOLOGIA AD INDIRIZZO ONCOLOGICO - AMBULATORIO': 'ONCOLOGY_HEMATOLOGY',
+    'FOLLOW UP DEL PAZIENTE POST ACUTO - AMBULATORIO': 'POST_ACUTE_FOLLOW_UP'
+}
+
 TIMESTAMP_COLUMNS = [
     "arrival_ts",
     "acceptancy_ts",
@@ -113,6 +139,13 @@ def drop_invalid_exams(df: pd.DataFrame, to_remove: list[str]) -> pd.DataFrame:
 def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame:
     """Rename DataFrame columns according to the given mapping."""
     return df.rename(columns=rename_map)
+
+
+def translate_department_values(df: pd.DataFrame, translation_map: dict[str, str]) -> pd.DataFrame:
+    """
+    Translate department names to english to the given mapping. """
+
+    return df.replace(translation_map)
 
 
 def map_outcome_values(df: pd.DataFrame) -> pd.DataFrame:
@@ -177,6 +210,7 @@ def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
     df = rename_columns(df, RENAME_MAP)
+    df = translate_department_values(df, VISIT_DESCRIPTION_RENAMING_MAPPING)
     df = filter_emergency_room(df)
     df = drop_invalid_exams(df, REMOVE_VALUES)
     df = filter_columns(df, list(RENAME_MAP.values()))
