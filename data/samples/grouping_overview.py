@@ -4,7 +4,7 @@
 # This group makes up the majority of the dataset and is kept separate for clarity.
 # ==============================================
 TESTS = {
-    'LAB. ANALISI': 'TEST / HIGH_VOLUME_LAB',
+    'LAB. ANALISI': 'TEST',
 }
 
 
@@ -14,8 +14,8 @@ TESTS = {
 # These represent a significant portion of hospital activity (≈10%) and are analyzed independently.
 # ==============================================
 RADIOLOGY = {
-    'RADIOLOGIA': 'IMAGING / RADIOLOGY_DEPT',
-    'U.O.S.D. NEURORADIOLOGIA': 'NEURO_IMAGING',
+    'RADIOLOGIA': 'RADIOLOGY_DEPT',
+    'U.O.S.D. NEURORADIOLOGIA': 'NEURORADIOLOGY',
     }
 
 # ==============================================
