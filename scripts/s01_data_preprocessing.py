@@ -55,7 +55,7 @@ RENAME_MAP = {
     "DATA_PREVISTA_EROGAZIONE": "test_planned_ts"
 }
 
-VISIT_DESCRIPTION_RENAMING_MAPPING = {
+TEST_DEPARTMENT_RENAMING_MAPPING = {
     'LAB. ANALISI': 'TEST / HIGH_VOLUME_LAB',
     'RADIOLOGIA': 'IMAGING / RADIOLOGY_DEPT',
     'U.O.S.D. NEURORADIOLOGIA': 'NEURO_IMAGING',
@@ -79,6 +79,36 @@ VISIT_DESCRIPTION_RENAMING_MAPPING = {
     'CHIRURGIA GENERALE ED ONCOLOGICA - AMBULATORIO': 'ONCOLOGY_SURGERY',
     'EMATOLOGIA AD INDIRIZZO ONCOLOGICO - AMBULATORIO': 'ONCOLOGY_HEMATOLOGY',
     'FOLLOW UP DEL PAZIENTE POST ACUTO - AMBULATORIO': 'POST_ACUTE_FOLLOW_UP'
+}
+
+TEST_DEPARTMENT_GROUPING = {
+    "TESTS": ["TEST / HIGH_VOLUME_LAB"],
+    "RADIOLOGY": [
+        "IMAGING / RADIOLOGY_DEPT",
+        "NEURO_IMAGING"],
+    "MEDICAL": [
+        "GASTROENTEROLOGY",
+        "NEPHROLOGY",
+        "DERMATOLOGY",
+        "INTERNAL_MEDICINE",
+        "NEUROLOGY",
+        "PULMONOLOGY",
+        "ALLERGOLOGY_AMB",
+        "EMERGENCY_CARDIOLOGY_UTIC",
+        "INFECTIOUS_DISEASES_PHARMACY"],
+    "SURGERY": [
+        "NEUROSURGERY",
+        "ORTHOPEDICS_TRAUMA",
+        "ENT_OTOLARYNGOLOGY",
+        "UROLOGY",
+        "VASCULAR_SURGERY_AMB",
+        "MAXILLOFACIAL_SURGERY_AMB"],
+    "INTENSIVE": ["ANESTHESIA_RESUSCITATION_AMB"],
+    "ONCOLOGY": [
+        "ONCOLOGY_GENERAL",
+        "ONCOLOGY_SURGERY",
+        "ONCOLOGY_HEMATOLOGY"],
+    "FOLLOW_UP": ["POST_ACUTE_FOLLOW_UP"],
 }
 
 TIMESTAMP_COLUMNS = [
@@ -141,11 +171,22 @@ def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame
     return df.rename(columns=rename_map)
 
 
-def translate_department_values(df: pd.DataFrame, translation_map: dict[str, str]) -> pd.DataFrame:
+def translate_test_departmente_values(df: pd.DataFrame, translation_map: dict[str, str]) -> pd.DataFrame:
     """
     Translate department names to english to the given mapping. """
 
     return df.replace(translation_map)
+
+
+def create_test_department_group(df: pd.DataFrame, visit_description_group_map: dict[str, str]) -> pd.DataFrame:
+    # invert the mapping so each value maps to its group
+    value_to_group = {
+        value: group
+        for group, values in visit_description_group_map.items()
+        for value in values
+    }
+    df["test_department_group"] = df["test_department"].map(value_to_group)
+    return df
 
 
 def map_outcome_values(df: pd.DataFrame) -> pd.DataFrame:
@@ -210,10 +251,11 @@ def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
     df = rename_columns(df, RENAME_MAP)
-    df = translate_department_values(df, VISIT_DESCRIPTION_RENAMING_MAPPING)
+    df = translate_test_departmente_values(df, TEST_DEPARTMENT_RENAMING_MAPPING)
     df = filter_emergency_room(df)
     df = drop_invalid_exams(df, REMOVE_VALUES)
     df = filter_columns(df, list(RENAME_MAP.values()))
+    df = create_test_department_group(df, TEST_DEPARTMENT_GROUPING)
     df = convert_timestamps(df, TIMESTAMP_COLUMNS)
     df = add_synthetic_timestamps(df)
     df = clean_strings(df)
