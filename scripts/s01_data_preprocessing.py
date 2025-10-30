@@ -68,6 +68,7 @@ TEST_DEPARTMENT_RENAMING_MAPPING = {
     'REPARTO AMBULATORIALE ALLERGOLOGIA': 'ALLERGOLOGY_AMB',
     "CARDIOLOGIA D'EMERGENZA CON UTIC - AMBULATORIO": 'EMERGENCY_CARDIOLOGY_UTIC',
     'MALATTIE INFETTIVE E TROPICALI A DIREZIONE UNIVERSITARIA - AMBULATORIO - EROGAZIONE FARMACI PER ESTERNI': 'INFECTIOUS_DISEASES_PHARMACY',
+    'Eliot': 'ELIOT_TRANSFUSION',
     'NEUROCHIRURGIA - AMBULATORIO': 'NEUROSURGERY',
     'ORTOPEDIA E TRAUMATOLOGIA - AMBULATORIO': 'ORTHOPEDICS_TRAUMA',
     'OTORINOLARINGOIATRIA - AMBULATORIO': 'ENT_OTOLARYNGOLOGY',
@@ -95,7 +96,8 @@ TEST_DEPARTMENT_GROUPING = {
         "PULMONOLOGY",
         "ALLERGOLOGY_AMB",
         "EMERGENCY_CARDIOLOGY_UTIC",
-        "INFECTIOUS_DISEASES_PHARMACY"],
+        "INFECTIOUS_DISEASES_PHARMACY",
+        "ELIOT_TRANSFUSION"],
     "SURGERY": [
         "NEUROSURGERY",
         "ORTHOPEDICS_TRAUMA",
@@ -171,18 +173,17 @@ def rename_columns(df: pd.DataFrame, rename_map: dict[str, str]) -> pd.DataFrame
     return df.rename(columns=rename_map)
 
 
-def translate_test_departmente_values(df: pd.DataFrame, translation_map: dict[str, str]) -> pd.DataFrame:
-    """
-    Translate department names to english to the given mapping. """
-
+def translate_test_department(df: pd.DataFrame, translation_map: dict[str, str]) -> pd.DataFrame:
+    """Translate department names to english accorging to the given mapping. """
     return df.replace(translation_map)
 
 
-def create_test_department_group(df: pd.DataFrame, visit_description_group_map: dict[str, str]) -> pd.DataFrame:
+def create_test_department_group(df: pd.DataFrame, group_map: dict[str, str]) -> pd.DataFrame:
+    """Create test department groups based on the given group map. """
     # invert the mapping so each value maps to its group
     value_to_group = {
         value: group
-        for group, values in visit_description_group_map.items()
+        for group, values in group_map.items()
         for value in values
     }
     df["test_department_group"] = df["test_department"].map(value_to_group)
@@ -250,16 +251,18 @@ def save_data(df: pd.DataFrame, filepath: Path) -> None:
 def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
+    df = clean_strings(df)
     df = rename_columns(df, RENAME_MAP)
-    df = translate_test_departmente_values(
-        df, TEST_DEPARTMENT_RENAMING_MAPPING)
     df = filter_emergency_room(df)
     df = drop_invalid_exams(df, REMOVE_VALUES)
     df = filter_columns(df, list(RENAME_MAP.values()))
+    df = translate_test_department(
+        df,
+        TEST_DEPARTMENT_RENAMING_MAPPING
+    )
     df = create_test_department_group(df, TEST_DEPARTMENT_GROUPING)
     df = convert_timestamps(df, TIMESTAMP_COLUMNS)
     df = add_synthetic_timestamps(df)
-    df = clean_strings(df)
     df = map_outcome_values(df)
     df = map_triage_severity_values(df)
     df = dropna_by_column(df, column="triage_exit_severity")
