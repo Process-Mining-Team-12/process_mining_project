@@ -248,7 +248,7 @@ if __name__ == "__main__":
             description = ",".join(
                 [tv["visit_description"] for _, tv in tv_df.iterrows()]
             )
-            if get_unique_from_df(tv_df, "test_department") == "LAB. ANALISI":
+            if get_unique_from_df(tv_df, "test_department") == "TEST":
                 if first_test:
                     #  TEST INITIAL EVENT
                     test = TestInitialEvent(
