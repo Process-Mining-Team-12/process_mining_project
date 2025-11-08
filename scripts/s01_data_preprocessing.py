@@ -147,6 +147,13 @@ def load_data(filepath: Path) -> pd.DataFrame:
     return pd.read_csv(filepath, low_memory=False)
 
 
+def update_outcome_timestamp(df: pd.DataFrame) -> pd.DataFrame:
+    """Fix the time zone adding one hour to outcome timestamp"""
+    date_hour_string = df["Data_Dimissione"] + ' ' + df["Ora_Dimissione"]
+    df["data_dimissione_tot"] = pd.to_datetime(date_hour_string)
+    return df
+
+
 def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
     """Strip spaces from all string columns."""
     for col in df.select_dtypes(include=["object"]).columns:
@@ -242,6 +249,16 @@ def drop_invalid_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     return df[~df["case_id"].isin(ids_to_remove)]
 
 
+def drop_2024_records(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFrame:
+    """Remove all recordds with the discharge timestamp in 2024."""
+    ids_to_remove = []
+    for col in timestamp_cols:
+        ids_to_remove.extend(
+            df.loc[df[col].dt.year >= 2024, "case_id"].dropna().unique()
+        )
+    return df[~df["case_id"].isin(ids_to_remove)]
+
+
 def save_data(df: pd.DataFrame, filepath: Path) -> None:
     """Save DataFrame to CSV."""
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -251,6 +268,7 @@ def save_data(df: pd.DataFrame, filepath: Path) -> None:
 def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
+    df = update_outcome_timestamp(df)
     df = clean_strings(df)
     df = rename_columns(df, RENAME_MAP)
     df = filter_emergency_room(df)
@@ -267,6 +285,7 @@ def process_data(input_path: Path, output_path: Path) -> None:
     df = map_triage_severity_values(df)
     df = dropna_by_column(df, column="triage_exit_severity")
     df = drop_invalid_timestamps(df)
+    df = drop_2024_records(df, TIMESTAMP_COLUMNS)
     save_data(df, output_path)
 
 
