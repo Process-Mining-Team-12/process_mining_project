@@ -40,7 +40,7 @@ class TriageEntryEvent(BaseEvent):
 
     def to_dict(self):
         result = super().to_dict()
-        result["severity"] = self.severity
+        result["triage_entry_severity"] = self.severity
         return result
 
 
@@ -114,7 +114,7 @@ class TriageExitEvent(BaseEvent):
 
     def to_dict(self):
         result = super().to_dict()
-        result["severity"] = self.severity
+        result["triage_exit_severity"] = self.severity
         return result
 
 
