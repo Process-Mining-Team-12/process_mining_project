@@ -132,6 +132,7 @@ The following table details how the raw data columns are mapped to the final, cl
 | Other columns | ❌ No | (Discarded) | Not required for the analysis. |
 
 ## Activity Groups
+
 Due to a large number of individual activities, the data was split into 6 different groups based on the `DESCR_EROGATORE` column. This column holds the description of the department that provided the service for the patient and thus served as a strong logical basis for grouping related departments together.
 
 The mapping below defines the six categories and lists the original DESCR_EROGATORE values that were assigned to each. The format for the mapping list is [**Former DESCR_EROGATORE Name ->  `TEST/VISIT.*_department`**]
@@ -151,6 +152,15 @@ The mapping below defines the six categories and lists the original DESCR_EROGAT
 
 💡 Full group division with description is available in this [file](data/samples/grouping_overview.py).
 
+## Italian Guidelines
+
+| Severity | Maximum waiting time |
+| :--- | :--- |
+| RED | - |
+| ORANGE | 15 minutes |
+| BLUE | 60 minutes |
+| GREEN | 120 minutes |
+| WHITE | 240 minutes |
 
 ## 🛠️ Setup & Troubleshooting
 
