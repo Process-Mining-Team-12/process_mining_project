@@ -218,9 +218,9 @@ if __name__ == "__main__":
             "triage_exit_severity"
         )
 
-        assert arrival_ts < triage_entry_ts
-        assert triage_entry_ts < acceptancy_ts
-        assert acceptancy_ts < triage_exit_ts
+        assert arrival_ts < triage_entry_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
+        assert triage_entry_ts < acceptancy_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
+        assert acceptancy_ts < triage_exit_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
 
         # ARRIVAL EVENT
         arrival = ArrivalEvent(case_id, arrival_ts)

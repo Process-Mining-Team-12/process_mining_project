@@ -154,6 +154,13 @@ def update_outcome_timestamp(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def update_arrival_timestamp(df: pd.DataFrame) -> pd.DataFrame:
+    """Fix the time zone adding one hour to arrival timestamp"""
+    date_hour_string = df["Data_Arrivo"] + ' ' + df["Ora_Arrivo"]
+    df["data_arrivo_tot"] = pd.to_datetime(date_hour_string)
+    return df
+
+
 def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
     """Strip spaces from all string columns."""
     for col in df.select_dtypes(include=["object"]).columns:
@@ -220,7 +227,8 @@ def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFr
     """Convert timestamp columns to datetime, coercing errors."""
     for col in timestamp_cols:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+            df[col] = pd.to_datetime(
+                df[col], errors="coerce").dt.tz_localize("Etc/GMT-1")
     return df
 
 
@@ -243,7 +251,8 @@ def dropna_by_column(df: pd.DataFrame, column: str):
 def drop_invalid_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Remove all patients with invalid timestamps."""
     ids_to_remove = df.loc[
-        df["acceptancy_ts"] >= df["triage_exit_ts"],
+        (df["acceptancy_ts"] >= df["triage_exit_ts"])
+        | (df["acceptancy_ts"] <= df["arrival_ts"]),
         "case_id"
     ].dropna().unique()
     return df[~df["case_id"].isin(ids_to_remove)]
@@ -269,6 +278,7 @@ def process_data(input_path: Path, output_path: Path) -> None:
     """Execute the full filtering and cleaning pipeline."""
     df = load_data(input_path)
     df = update_outcome_timestamp(df)
+    df = update_arrival_timestamp(df)
     df = clean_strings(df)
     df = rename_columns(df, RENAME_MAP)
     df = filter_emergency_room(df)
