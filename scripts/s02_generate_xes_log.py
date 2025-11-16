@@ -30,6 +30,34 @@ class BaseEvent(ABC):
 class ArrivalEvent(BaseEvent):
     """Event ARRIVAL"""
     name: str = field(init=False, default="ARRIVAL")
+    arrival_method: str
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["arrival_method"] = self.arrival_method
+        return result
+
+
+@dataclass
+class ArrivalEventStart(ArrivalEvent):
+    """Event ARRIVAL start"""
+    name: str = field(init=False, default="ARRIVAL")
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["lifecycle:transition"] = "start"
+        return result
+
+
+@dataclass
+class ArrivalEventComplete(ArrivalEvent):
+    """Event ARRIVAL complete"""
+    name: str = field(init=False, default="ARRIVAL")
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["lifecycle:transition"] = "complete"
+        return result
 
 
 @dataclass
@@ -209,6 +237,11 @@ if __name__ == "__main__":
         triage_exit_ts = get_unique_from_df(event_df, "triage_exit_ts")
         discharge_ts = get_unique_from_df(event_df, "discharge_ts")
 
+        arrival_ts_complete = get_unique_from_df(
+            event_df,
+            "arrival_ts_complete"
+        )
+
         triage_entry_severity = get_unique_from_df(
             event_df,
             "triage_entry_severity"
@@ -218,13 +251,33 @@ if __name__ == "__main__":
             "triage_exit_severity"
         )
 
-        assert arrival_ts < triage_entry_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
-        assert triage_entry_ts < acceptancy_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
-        assert acceptancy_ts < triage_exit_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
+        assert arrival_ts < triage_entry_ts, f"{case_id}: {arrival_ts} >= {acceptancy_ts}"
+        assert arrival_ts_complete >= arrival_ts, f"{case_id}: {arrival_ts_complete} < {arrival_ts}"
+        assert triage_entry_ts < acceptancy_ts, f"{case_id}: {triage_entry_ts} >= {acceptancy_ts}"
+        assert acceptancy_ts < triage_exit_ts, f"{case_id}: {acceptancy_ts} >= {triage_exit_ts}"
 
         # ARRIVAL EVENT
-        arrival = ArrivalEvent(case_id, arrival_ts)
-        case.add_event(arrival)
+        arrival_method = get_unique_from_df(event_df, "arrival_method")
+        if arrival_ts_complete == arrival_ts:
+            arrival = ArrivalEvent(
+                case_id,
+                arrival_ts,
+                arrival_method
+            )
+            case.add_event(arrival)
+        else:
+            arrival_start = ArrivalEventStart(
+                case_id,
+                arrival_ts,
+                arrival_method
+            )
+            arrival_complete = ArrivalEventComplete(
+                case_id,
+                arrival_ts_complete,
+                arrival_method
+            )
+            case.add_event(arrival_start)
+            case.add_event(arrival_complete)
 
         # TRIAGE ENTRY EVENT
         triage_entry = TriageEntryEvent(
