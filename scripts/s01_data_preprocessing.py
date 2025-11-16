@@ -232,10 +232,21 @@ def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFr
     return df
 
 
+def update_ambulance_timestamps(df: pd.DataFrame) -> pd.DataFrame:
+    """Update acceptancy timestamp when arrival method is ambulance to make it 1 minute."""
+    mask = df["arrival_method"].str.contains("ambulanza", case=False, na=False)
+
+    df.loc[mask, "arrival_ts_complete"] = df["acceptancy_ts"] - \
+        timedelta(minutes=1)
+    df.loc[~mask, "arrival_ts_complete"] = df["arrival_ts"]
+    return df
+
+
 def add_synthetic_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Add synthetic timestamps for triage and discharge events."""
-    if "arrival_ts" in df.columns:
-        df["triage_entry_ts"] = df["arrival_ts"] + timedelta(seconds=1)
+    if "arrival_ts_complete" in df.columns:
+        df["triage_entry_ts"] = df["arrival_ts_complete"] + \
+            timedelta(seconds=1)
     if "outcome_ts" in df.columns:
         df["triage_exit_ts"] = df["outcome_ts"] + timedelta(seconds=1)
         df["discharge_ts"] = df["outcome_ts"] + timedelta(seconds=2)
@@ -290,6 +301,7 @@ def process_data(input_path: Path, output_path: Path) -> None:
     )
     df = create_test_department_group(df, TEST_DEPARTMENT_GROUPING)
     df = convert_timestamps(df, TIMESTAMP_COLUMNS)
+    df = update_ambulance_timestamps(df)
     df = add_synthetic_timestamps(df)
     df = map_outcome_values(df)
     df = map_triage_severity_values(df)
