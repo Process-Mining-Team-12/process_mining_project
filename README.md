@@ -1,5 +1,7 @@
 # Emergency Room Process Mining Analysis
 
+Link to the presentation: https://1drv.ms/p/c/bb84f531edaba980/ESdKGRbvZ5BIgvmYx1JdLyUBXXqkpEbzQ1bY7DsRAy8QAA?e=4NaCXv
+
 This project aims to analyze and discover the patient care process within an emergency room using process mining techniques. The goal is to transform raw hospital data into a structured event log for analysis, identifying bottlenecks and common patient journeys.
 
 ---
