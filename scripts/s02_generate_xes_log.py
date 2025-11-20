@@ -1,4 +1,5 @@
 """Data Processing Script"""
+from datetime import timedelta
 from abc import ABC
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,15 +28,24 @@ class BaseEvent(ABC):
 
 
 @dataclass
-class ArrivalEvent(BaseEvent):
-    """Event ARRIVAL"""
-    name: str = field(init=False, default="ARRIVAL")
+class RegistrationEvent(BaseEvent):
+    """Event REGISTRATION"""
+    name: str = field(init=False, default="REGISTRATION")
+    arrival_method: str
+    # lifecycle_transition: str | None = None
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["arrival_method"] = self.arrival_method
+        # if self.lifecycle_transition is not None:
+        #     result["lifecycle:transition"] = self.lifecycle_transition
+        return result
 
 
 @dataclass
-class TriageEntryEvent(BaseEvent):
-    """Event TRIAGE_ENTRY"""
-    name: str = field(init=False, default="TRIAGE_ENTRY")
+class StartTriageEntryEvent(BaseEvent):
+    """Event START_TRIAGE_ENTRY"""
+    name: str = field(init=False, default="START_TRIAGE_ENTRY")
     severity: str
 
     def to_dict(self):
@@ -57,14 +67,16 @@ class TestInitialEvent(BaseEvent):
     code: int
     description: str
     department: str
+    lifecycle_transition: str | None = None
 
     def to_dict(self):
         result = super().to_dict()
         result["code"] = self.code
         result["description"] = self.description
         result["department"] = self.department
+        if self.lifecycle_transition is not None:
+            result["lifecycle:transition"] = self.lifecycle_transition
         return result
-
 
 @dataclass
 class TestFollowUpEvent(BaseEvent):
@@ -73,18 +85,20 @@ class TestFollowUpEvent(BaseEvent):
     code: int
     description: str
     department: str
+    lifecycle_transition: str | None = None
 
     def to_dict(self):
         result = super().to_dict()
         result["code"] = self.code
         result["description"] = self.description
         result["department"] = self.department
+        if self.lifecycle_transition is not None:
+            result["lifecycle:transition"] = self.lifecycle_transition
         return result
 
-
 @dataclass
-class VisitEvent(BaseEvent):
-    """Event VISIT"""
+class RequestVisitEvent(BaseEvent):
+    """Event REQUEST_VISIT"""
     # No default value for name because it depends on the group
     name: str
     code: int
@@ -96,6 +110,25 @@ class VisitEvent(BaseEvent):
         result["code"] = self.code
         result["description"] = self.description
         result["department"] = self.department
+        return result
+
+@dataclass
+class VisitEvent(BaseEvent):
+    """Event VISIT"""
+    # No default value for name because it depends on the group
+    name: str
+    code: int
+    description: str
+    department: str
+    lifecycle_transition: str | None = None
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["code"] = self.code
+        result["description"] = self.description
+        result["department"] = self.department
+        if self.lifecycle_transition is not None:
+            result["lifecycle:transition"] = self.lifecycle_transition
         return result
 
 
@@ -107,9 +140,9 @@ class OutcomeEvent(BaseEvent):
 
 
 @dataclass
-class TriageExitEvent(BaseEvent):
-    """Event TRIAGE_EXIT"""
-    name: str = field(init=False, default="TRIAGE_EXIT")
+class StartTriageExitEvent(BaseEvent):
+    """Event START_TRIAGE_EXIT"""
+    name: str = field(init=False, default="START_TRIAGE_EXIT")
     severity: str
 
     def to_dict(self):
@@ -140,11 +173,23 @@ class Case:
     case_id: str
     events: list[BaseEvent] = field(default_factory=list)
 
+    def _normalize_timestamp(self, ts):
+        """Ensure timestamp is a Python datetime, not a string."""
+        if isinstance(ts, dt.datetime):
+            return ts
+        return pd.to_datetime(ts).to_pydatetime()
+
     def add_event(self, event: BaseEvent):
         """Add an event to the case"""
         assert event.case_id == self.case_id, "case_id mismatch!"
+        event.timestamp = self._normalize_timestamp(event.timestamp)
         self.events.append(event)
         self.events.sort(key=lambda e: e.timestamp)
+
+    def add_events(self, events: list[BaseEvent]):
+        """Add a list of events to the case"""
+        for e in events:
+            self.add_event(e)
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert all events in the case to a DataFrame."""
@@ -187,10 +232,11 @@ def load_data(filepath: Path) -> pd.DataFrame:
     return pd.read_csv(filepath, low_memory=False)
 
 
-def get_unique_from_df(df: pd.DataFrame, key: str):
+def get_unique_from_df(df: pd.DataFrame, key: str, disable_assert: bool = False):
     """Return the unique value from the dataframe."""
     value = {e[key] for _, e in df.iterrows()}
-    assert len(value) == 1, f"More than one {key}: {value}!"
+    if not disable_assert:
+        assert len(value) == 1, f"More than one {key}: {value}! DF: {df!r}"
     return value.pop()
 
 
@@ -202,12 +248,17 @@ if __name__ == "__main__":
     for case_id, event_df in cases:
         case = Case(case_id, [])
 
-        arrival_ts = get_unique_from_df(event_df, "arrival_ts")
+        registration_ts = get_unique_from_df(event_df, "registration_ts")
         triage_entry_ts = get_unique_from_df(event_df, "triage_entry_ts")
         acceptancy_ts = get_unique_from_df(event_df, "acceptancy_ts")
         outcome_ts = get_unique_from_df(event_df, "outcome_ts")
         triage_exit_ts = get_unique_from_df(event_df, "triage_exit_ts")
         discharge_ts = get_unique_from_df(event_df, "discharge_ts")
+
+        # registration_ts_complete = get_unique_from_df(
+        #     event_df,
+        #     "registration_ts_complete"
+        # )
 
         triage_entry_severity = get_unique_from_df(
             event_df,
@@ -218,20 +269,23 @@ if __name__ == "__main__":
             "triage_exit_severity"
         )
 
-        assert arrival_ts < triage_entry_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
-        assert triage_entry_ts < acceptancy_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
-        assert acceptancy_ts < triage_exit_ts, f"{case_id}: {arrival_ts} - {acceptancy_ts}"
+        assert registration_ts < triage_entry_ts, f"{case_id}: {registration_ts} >= {acceptancy_ts}"
+        assert triage_entry_ts < acceptancy_ts, f"{case_id}: {triage_entry_ts} >= {acceptancy_ts}"
+        assert acceptancy_ts < triage_exit_ts, f"{case_id}: {acceptancy_ts} >= {triage_exit_ts}"
 
-        # ARRIVAL EVENT
-        arrival = ArrivalEvent(case_id, arrival_ts)
-        case.add_event(arrival)
+        # REGISTRATION EVENT
+        arrival_method = get_unique_from_df(event_df, "arrival_method")
+        case.add_event(RegistrationEvent(case_id, registration_ts, arrival_method))
+        # if registration_ts_complete == registration_ts:
+        #     case.add_event(RegistrationEvent(case_id, registration_ts, arrival_method))
+        # else:
+        #     case.add_events([
+        #         RegistrationEvent(case_id, registration_ts, arrival_method, "start"),
+        #         RegistrationEvent(case_id, registration_ts_complete, arrival_method, "complete")
+        #     ])
 
         # TRIAGE ENTRY EVENT
-        triage_entry = TriageEntryEvent(
-            case_id,
-            triage_entry_ts,
-            triage_entry_severity
-        )
+        triage_entry = StartTriageEntryEvent(case_id, triage_entry_ts, triage_entry_severity)
         case.add_event(triage_entry)
 
         # ACCEPTANCY EVENT
@@ -239,46 +293,45 @@ if __name__ == "__main__":
         case.add_event(acceptancy)
 
         test_and_visits = event_df.groupby([
-            "test_planned_ts",
+            # "test_planned_ts",
+            "request_visit_ts",
             "visit_code",
             "test_department"
         ])
+        
         first_test = True
         for index, tv_df in test_and_visits:
-            description = ",".join(
-                [tv["visit_description"] for _, tv in tv_df.iterrows()]
-            )
+            request_visit_ts = get_unique_from_df(tv_df, "request_visit_ts")
+            complete_ts = get_unique_from_df(tv_df, "test_planned_ts", disable_assert=True)
+            start_ts = pd.to_datetime(complete_ts) - timedelta(minutes=int(get_unique_from_df(tv_df, "average_visit_time")))
+            if start_ts <= pd.to_datetime(request_visit_ts):
+                start_ts = pd.to_datetime(request_visit_ts) + timedelta(seconds=1)
+            code = get_unique_from_df(tv_df, "visit_code")
+            desc = ",".join([tv["visit_description"] for _, tv in tv_df.iterrows()])
+            department = get_unique_from_df(tv_df, "test_department")
+
             if get_unique_from_df(tv_df, "test_department") == "TEST":
                 if first_test:
                     #  TEST INITIAL EVENT
-                    test = TestInitialEvent(
-                        case_id,
-                        timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
-                        code=get_unique_from_df(tv_df, "visit_code"),
-                        description=description,
-                        department=get_unique_from_df(tv_df, "test_department")
-                    )
+                    case.add_events([
+                        TestInitialEvent(case_id, start_ts, code, desc, department, "start"),
+                        TestInitialEvent(case_id, complete_ts, code, desc, department, "complete")
+                    ])
                     first_test = False
                 else:
                     #  TEST FOLLOW UP EVENT
-                    test = TestFollowUpEvent(
-                        case_id,
-                        timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
-                        code=get_unique_from_df(tv_df, "visit_code"),
-                        description=description,
-                        department=get_unique_from_df(tv_df, "test_department")
-                    )
-                case.add_event(test)
+                    case.add_events([
+                        TestFollowUpEvent(case_id, start_ts, code, desc, department, "start"),
+                        TestFollowUpEvent(case_id, complete_ts, code, desc, department, "complete")
+                    ])
             else:
-                visit = VisitEvent(
-                    case_id,
-                    name=f"VISIT_{get_unique_from_df(tv_df, 'test_department_group')}",
-                    timestamp=get_unique_from_df(tv_df, "test_planned_ts"),
-                    code=get_unique_from_df(tv_df, "visit_code"),
-                    description=description,
-                    department=get_unique_from_df(tv_df, "test_department")
-                )
-                case.add_event(visit)
+                name = f"VISIT_{get_unique_from_df(tv_df, 'test_department_group')}"
+                request_name = f"REQUEST_{name}"
+                case.add_event(RequestVisitEvent(case_id, request_name, request_visit_ts, code, desc, department))
+                case.add_events([
+                    VisitEvent(case_id, name, start_ts, code, desc, department, "start"),
+                    VisitEvent(case_id, name, complete_ts, code, desc, department, "complete")
+                ])
 
         # OUCOME EVENT
         outcome_value = get_unique_from_df(event_df, "outcome_raw")
@@ -290,7 +343,7 @@ if __name__ == "__main__":
         case.add_event(outcome)
 
         # TRIAGE EXIT EVENT
-        triage_exit = TriageExitEvent(
+        triage_exit = StartTriageExitEvent(
             case_id,
             timestamp=triage_exit_ts,
             severity=get_unique_from_df(event_df, "triage_exit_severity")

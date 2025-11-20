@@ -35,7 +35,7 @@ RENAME_MAP = {
     "Triage_OUT": "triage_exit_severity",
 
     # Core timestamps
-    "data_arrivo_tot": "arrival_ts",
+    "data_arrivo_tot": "registration_ts",
     "Presa_In_Carico": "acceptancy_ts",
     "data_dimissione_tot": "outcome_ts",
 
@@ -52,7 +52,8 @@ RENAME_MAP = {
     "CODICE_RICHIESTA": "visit_code",
     "DESCR_PRESTAZIONE": "visit_description",
     "DESCR_EROGATORE": "test_department",
-    "DATA_PREVISTA_EROGAZIONE": "test_planned_ts"
+    "DATA_INSERIMENTO_RICHIESTA": "request_visit_ts",
+    "DATA_PREVISTA_EROGAZIONE": "test_planned_ts",
 }
 
 TEST_DEPARTMENT_RENAMING_MAPPING = {
@@ -113,11 +114,39 @@ TEST_DEPARTMENT_GROUPING = {
     "FOLLOW_UP": ["POST_ACUTE_FOLLOW_UP"],
 }
 
+TEST_DEPARTMENT_AVERAGE_TIME = {
+    "TEST": 10,
+    "RADIOLOGY_DEPT": 20,
+    "NEURORADIOLOGY": 40,
+    "GASTROENTEROLOGY": 25,
+    "NEPHROLOGY": 25,
+    "DERMATOLOGY": 25,
+    "INTERNAL_MEDICINE": 25,
+    "NEUROLOGY": 30,
+    "PULMONOLOGY": 25,
+    "ALLERGOLOGY_AMB": 25,
+    "EMERGENCY_CARDIOLOGY_UTIC": 30,
+    "INFECTIOUS_DISEASES_PHARMACY": 25,
+    "ELIOT_TRANSFUSION": 60,
+    "NEUROSURGERY": 30,
+    "ORTHOPEDICS_TRAUMA": 25,
+    "ENT_OTOLARYNGOLOGY": 25,
+    "UROLOGY": 25,
+    "VASCULAR_SURGERY_AMB": 25,
+    "MAXILLOFACIAL_SURGERY_AMB": 25,
+    "ANESTHESIA_RESUSCITATION_AMB": 30,
+    "ONCOLOGY_GENERAL": 30,
+    "ONCOLOGY_SURGERY": 30,
+    "ONCOLOGY_HEMATOLOGY": 30,
+    "POST_ACUTE_FOLLOW_UP": 30,
+}
+
 TIMESTAMP_COLUMNS = [
-    "arrival_ts",
+    "registration_ts",
     "acceptancy_ts",
     "outcome_ts",
     "test_planned_ts",
+    "request_visit_ts",
 ]
 
 OUTCOME_MAP = {
@@ -192,6 +221,12 @@ def translate_test_department(df: pd.DataFrame, translation_map: dict[str, str])
     return df.replace(translation_map)
 
 
+def add_department_average_time(df: pd.DataFrame, average_time_map: dict[str, int]) -> pd.DataFrame:
+    """Add the average visit time based on the department."""
+    df["average_visit_time"] = df["test_department"].map(average_time_map)
+    return df
+
+
 def create_test_department_group(df: pd.DataFrame, group_map: dict[str, str]) -> pd.DataFrame:
     """Create test department groups based on the given group map. """
     # invert the mapping so each value maps to its group
@@ -234,8 +269,8 @@ def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFr
 
 def add_synthetic_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Add synthetic timestamps for triage and discharge events."""
-    if "arrival_ts" in df.columns:
-        df["triage_entry_ts"] = df["arrival_ts"] + timedelta(seconds=1)
+    if "registration_ts" in df.columns:
+        df["triage_entry_ts"] = df["registration_ts"] + timedelta(seconds=1)
     if "outcome_ts" in df.columns:
         df["triage_exit_ts"] = df["outcome_ts"] + timedelta(seconds=1)
         df["discharge_ts"] = df["outcome_ts"] + timedelta(seconds=2)
@@ -252,7 +287,8 @@ def drop_invalid_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Remove all patients with invalid timestamps."""
     ids_to_remove = df.loc[
         (df["acceptancy_ts"] >= df["triage_exit_ts"])
-        | (df["acceptancy_ts"] <= df["arrival_ts"]),
+        | (df["request_visit_ts"].isna())
+        | (df["acceptancy_ts"] <= df["registration_ts"]),
         "case_id"
     ].dropna().unique()
     return df[~df["case_id"].isin(ids_to_remove)]
@@ -288,8 +324,13 @@ def process_data(input_path: Path, output_path: Path) -> None:
         df,
         TEST_DEPARTMENT_RENAMING_MAPPING
     )
+    df = add_department_average_time(
+        df,
+        TEST_DEPARTMENT_AVERAGE_TIME
+    )
     df = create_test_department_group(df, TEST_DEPARTMENT_GROUPING)
     df = convert_timestamps(df, TIMESTAMP_COLUMNS)
+    # df = update_ambulance_timestamps(df)
     df = add_synthetic_timestamps(df)
     df = map_outcome_values(df)
     df = map_triage_severity_values(df)

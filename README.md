@@ -133,6 +133,35 @@ The following table details how the raw data columns are mapped to the final, cl
 | OBI / Data_OBI | ❓ | To be determined | Under consideration. |
 | Other columns | ❌ No | (Discarded) | Not required for the analysis. |
 
+## Average Activity Time Mapping
+
+| Department (Mapped)              | Average time per patient (minutes) |
+|----------------------------------|------------------------------------|
+| TEST                             | 10 min                             |
+| RADIOLOGY_DEPT                   | 20 min                             |
+| NEURORADIOLOGY                   | 40 min                             |
+| GASTROENTEROLOGY                 | 25 min                             |
+| NEPHROLOGY                       | 25 min                             |
+| DERMATOLOGY                      | 25 min                             |
+| INTERNAL_MEDICINE                | 25 min                             |
+| NEUROLOGY                        | 30 min                             |
+| PULMONOLOGY                      | 25 min                             |
+| ALLERGOLOGY_AMB                  | 25 min                             |
+| EMERGENCY_CARDIOLOGY_UTIC        | 30 min                             |
+| INFECTIOUS_DISEASES_PHARMACY     | 25 min                             |
+| ELIOT_TRANSFUSION                | 60 min                             |
+| NEUROSURGERY                     | 30 min                             |
+| ORTHOPEDICS_TRAUMA               | 25 min                             |
+| ENT_OTOLARYNGOLOGY               | 25 min                             |
+| UROLOGY                          | 25 min                             |
+| VASCULAR_SURGERY_AMB             | 25 min                             |
+| MAXILLOFACIAL_SURGERY_AMB        | 25 min                             |
+| ANESTHESIA_RESUSCITATION_AMB     | 30 min                             |
+| ONCOLOGY_GENERAL                 | 30 min                             |
+| ONCOLOGY_SURGERY                 | 30 min                             |
+| ONCOLOGY_HEMATOLOGY              | 30 min                             |
+| POST_ACUTE_FOLLOW_UP             | 30 min                             |
+
 ## Activity Groups
 
 Due to a large number of individual activities, the data was split into 6 different groups based on the `DESCR_EROGATORE` column. This column holds the description of the department that provided the service for the patient and thus served as a strong logical basis for grouping related departments together.
