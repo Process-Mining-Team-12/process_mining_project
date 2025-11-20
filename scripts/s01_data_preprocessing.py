@@ -267,21 +267,8 @@ def convert_timestamps(df: pd.DataFrame, timestamp_cols: list[str]) -> pd.DataFr
     return df
 
 
-# def update_ambulance_timestamps(df: pd.DataFrame) -> pd.DataFrame:
-#     """Update acceptancy timestamp when arrival method is ambulance to make it 1 minute."""
-#     mask = df["arrival_method"].str.contains("ambulanza", case=False, na=False)
-
-#     df.loc[mask, "registration_ts_complete"] = df["acceptancy_ts"] - \
-#         timedelta(minutes=1)
-#     df.loc[~mask, "registration_ts_complete"] = df["registration_ts"]
-#     return df
-
-
 def add_synthetic_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Add synthetic timestamps for triage and discharge events."""
-    # if "registration_ts_complete" in df.columns:
-    #     df["triage_entry_ts"] = df["registration_ts_complete"] + \
-    #         timedelta(seconds=1)
     if "registration_ts" in df.columns:
         df["triage_entry_ts"] = df["registration_ts"] + timedelta(seconds=1)
     if "outcome_ts" in df.columns:
