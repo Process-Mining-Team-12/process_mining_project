@@ -6,7 +6,7 @@ This project aims to analyze and discover the patient care process within an eme
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 The repository is organized to separate data, analysis scripts, and outputs:
 
@@ -26,7 +26,7 @@ The repository is organized to separate data, analysis scripts, and outputs:
 
 ---
 
-## 🎯 Target Data Schema
+## Target Data Schema
 
 The raw data will be processed into a structured event log. Each case will follow the `JSON` schema below, which is designed to be easily converted to the `XES` format.
 
@@ -99,7 +99,7 @@ The raw data will be processed into a structured event log. Each case will follo
 
 ---
 
-## 🗺️ Data Mapping: Raw Columns to Target Fields
+## Data Mapping: Raw Columns to Target Fields
 
 The following table details how the raw data columns are mapped to the final, clean event log structure.
 
@@ -185,6 +185,8 @@ The mapping below defines the six categories and lists the original DESCR_EROGAT
 
 ## Italian Guidelines
 
+### Maximum waiting time based on Severity
+
 | Severity | Maximum waiting time |
 | :--- | :--- |
 | RED | - |
@@ -193,7 +195,16 @@ The mapping below defines the six categories and lists the original DESCR_EROGAT
 | GREEN | 120 minutes |
 | WHITE | 240 minutes |
 
-## 🛠️ Setup & Troubleshooting
+### Set of Indicators and Reference Standards
+
+| INDICATOR | TYPE OF INDICATOR | REFERENCE STANDARD |
+|----------|--------------------|--------------------|
+| % of code-2 urgent patients who access treatment within 15 minutes | appropriateness | 85% of patients admitted with code 2 |
+| % of code-3 deferrable urgency patients who access treatment within 60 minutes | appropriateness | 80% of patients admitted with code 3 |
+| % of code-4 minor urgency patients who access treatment within 120 minutes | appropriateness | 75% of patients admitted with code 4 |
+| % of code-5 non-urgent patients who access treatment within 240 minutes | appropriateness | 75% of patients admitted with code 5 |
+
+## Setup & Troubleshooting
 
 This repository uses **Git LFS** (Large File Storage) to handle large data files. You must have the Git LFS client installed to clone and pull data correctly.
 
@@ -220,7 +231,7 @@ fatal: the remote end hung up unexpectedly
     git lfs install
     ```
 
-## ⚙️ Environment Setup
+## Environment Setup
 
 This project uses [uv](https://docs.astral.sh/uv/).
 
